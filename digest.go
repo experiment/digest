@@ -2,6 +2,8 @@ package main
 
 import (
 	"log"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -14,6 +16,17 @@ type digest struct {
 
 // DigestNoteRegex is the regex used to find notes to add to the digest
 var DigestNoteRegex = regexp.MustCompile(`COMM:(.*)(\n|$)`)
+
+func postToSlack(room string, message string) {
+	message = url.QueryEscape(message)
+
+	log.Print("Posting to slack: ", message)
+
+	_, err := http.Get("http://gon-bot.herokuapp.com/hubot/say?room=" + room + "&message=" + message)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 func (d *digest) get(since time.Time) []string {
 	PRs := d.client.getPullRequestsMergedSince(since)
@@ -37,7 +50,8 @@ func (d *digest) send(since time.Time) {
 	}
 	messages = append(messages, d.get(since)...)
 
-	log.Print(strings.Join(messages, "\n"))
+	// Post digest to slack general channel
+	postToSlack("general", strings.Join(messages, "\n *"))
 }
 
 func main() {
